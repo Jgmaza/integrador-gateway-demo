@@ -24,16 +24,16 @@ export function Overview() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
-            to="/bridge"
-            className="border border-accent bg-accent px-4 py-2 text-sm text-canvas"
+            to="/applications"
+            className="border border-[#5e35b1] bg-[#5e35b1] px-4 py-2 text-sm text-white"
           >
-            Open REST → SOAP lab
+            Open applications & routes
           </Link>
           <Link
-            to="/applications"
+            to="/bridge"
             className="border border-line bg-white/70 px-4 py-2 text-sm text-ink"
           >
-            Browse apps & routes
+            REST → SOAP lab
           </Link>
         </div>
       </section>
