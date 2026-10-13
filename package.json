@@ -1,31 +1,29 @@
 {
-  "name": "integrador-gateway-demo",
+  "name": "integrador-frontend",
+  "version": "0.0.1",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "build": "vite build",
+    "preview": "vite preview --host --port 5173",
+    "build:preview": "vite build && vite preview --host --port 5173",
+    "lint": "echo \"(lint placeholder)\""
   },
   "dependencies": {
-    "msw": "^2.11.6",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.4"
+    "@mdi/font": "^7.4.47",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "axios": "^1.7.7",
+    "pinia": "^2.1.7",
+    "typescript": "^5.4.5",
+    "vite": "^5.4.7",
+    "vue": "^3.5.12",
+    "vue-router": "^4.4.5",
+    "vuetify": "^3.9.0-beta.1"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.1",
-    "autoprefixer": "^10.6.1",
-    "oxlint": "^1.81.0",
-    "postcss": "^8.5.29",
-    "tailwindcss": "^3.4.19",
-    "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "@types/node": "^22.7.5",
+    "msw": "^2.15.0"
   },
   "msw": {
     "workerDirectory": [

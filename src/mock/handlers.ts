@@ -1,191 +1,130 @@
 import { http, HttpResponse } from "msw";
 import {
-  APPS,
-  CAPABILITIES,
-  DEMO_USERS,
-  ROUTES,
-  soapEnvelopeFromDraft,
-  type Role,
-} from "./db";
+  APPLICATIONS,
+  CONNECTION_TYPES,
+  DEMO_ROLE,
+  DEMO_USER,
+  ENTITIES,
+  SECURITY_TYPES,
+  USERS,
+  wrapList,
+  wrapOne,
+} from "./data";
 
-type Session = {
-  token: string;
-  userId: string;
-  role: Role;
-  appIds: string[];
-  name: string;
-  email: string;
-};
-
-const sessions = new Map<string, Session>();
-
-function auth(request: Request): Session | null {
-  const header = request.headers.get("Authorization");
-  if (!header?.startsWith("Bearer ")) return null;
-  return sessions.get(header.slice(7)) ?? null;
-}
+const apps = structuredClone(APPLICATIONS);
 
 export const handlers = [
-  http.post("/api/auth/login", async ({ request }) => {
-    const body = (await request.json()) as { email?: string; password?: string };
-    const user = DEMO_USERS.find(
-      (u) => u.email === body.email && u.password === body.password,
-    );
-    if (!user) {
+  http.post("/api/v1/auth/login", async () =>
+    HttpResponse.json(
+      wrapOne({ access_token: "demo-token", token_type: "Bearer" }),
+    ),
+  ),
+
+  http.get("/api/v1/users/me", () => HttpResponse.json(wrapOne(DEMO_USER))),
+
+  http.get("/api/v1/roles/:id", () => HttpResponse.json(wrapOne(DEMO_ROLE))),
+
+  http.get("/api/v1/users", () => HttpResponse.json(wrapList(USERS))),
+
+  http.get("/api/v1/entities", () => HttpResponse.json(wrapList(ENTITIES))),
+
+  http.get("/api/v1/security-types", () =>
+    HttpResponse.json(wrapList(SECURITY_TYPES)),
+  ),
+
+  http.get("/api/v1/connection-types", () =>
+    HttpResponse.json(wrapList(CONNECTION_TYPES)),
+  ),
+
+  http.get("/api/v1/applications", () => {
+    const list = apps.map(({ rutas: _rutas, ...rest }) => rest);
+    return HttpResponse.json(wrapList(list));
+  }),
+
+  http.get("/api/v1/applications/:id/rutas", ({ params }) => {
+    const id = Number(params.id);
+    const app = apps.find((a) => a.id === id);
+    return HttpResponse.json(wrapList(app?.rutas ?? []));
+  }),
+
+  http.get("/api/v1/applications/:id", ({ params }) => {
+    const id = Number(params.id);
+    const app = apps.find((a) => a.id === id);
+    if (!app) {
       return HttpResponse.json(
-        { detail: "Invalid credentials (demo users only)." },
-        { status: 401 },
+        {
+          resultCode: "NOT_FOUND",
+          message: "Not found",
+          errorDescription: "Application not found",
+          resultObj: null,
+          systemTime: Date.now(),
+        },
+        { status: 404 },
       );
     }
-    const token = `demo.${user.id}.${crypto.randomUUID()}`;
-    const session: Session = {
-      token,
-      userId: user.id,
-      role: user.role,
-      appIds: user.appIds,
-      name: user.name,
-      email: user.email,
-    };
-    sessions.set(token, session);
-    return HttpResponse.json({
-      access_token: token,
-      token_type: "bearer",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        appIds: user.appIds,
-      },
-    });
+    return HttpResponse.json(wrapOne(app));
   }),
 
-  http.get("/api/me", ({ request }) => {
-    const session = auth(request);
-    if (!session) {
-      return HttpResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
-    return HttpResponse.json({
-      id: session.userId,
-      name: session.name,
-      email: session.email,
-      role: session.role,
-      appIds: session.appIds,
-    });
-  }),
-
-  http.get("/api/capabilities", () => HttpResponse.json(CAPABILITIES)),
-
-  http.get("/api/applications", ({ request }) => {
-    const session = auth(request);
-    if (!session) {
-      return HttpResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
-    const apps =
-      session.role === "admin"
-        ? APPS
-        : APPS.filter((app) => session.appIds.includes(app.id));
-    return HttpResponse.json(apps);
-  }),
-
-  http.get("/api/routes", ({ request }) => {
-    const session = auth(request);
-    if (!session) {
-      return HttpResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
-    const allowed =
-      session.role === "admin"
-        ? ROUTES
-        : ROUTES.filter((route) => session.appIds.includes(route.appId));
-    return HttpResponse.json(allowed);
-  }),
-
-  http.get("/api/users", ({ request }) => {
-    const session = auth(request);
-    if (!session) {
-      return HttpResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
-    if (session.role === "consumer") {
-      return HttpResponse.json(
-        { detail: "Consumers cannot list users." },
-        { status: 403 },
-      );
-    }
+  http.post("/api/v1/applications/transform/preview", async ({ request }) => {
+    const body = await request.json().catch(() => ({}));
     return HttpResponse.json(
-      DEMO_USERS.map(({ password: _password, ...safe }) => safe),
+      wrapOne({
+        ok: true,
+        note: "Mock preview — no upstream call",
+        request: body,
+        soap_preview:
+          '<?xml version="1.0"?><Envelope><Body><!-- mock --></Body></Envelope>',
+      }),
     );
   }),
 
-  http.post("/api/bridge/preview", async ({ request }) => {
-    const session = auth(request);
-    if (!session) {
-      return HttpResponse.json({ detail: "Unauthorized" }, { status: 401 });
-    }
-    if (!session.appIds.includes("app-docket") && session.role !== "admin") {
-      return HttpResponse.json(
-        { detail: "No access to DocketOS routes." },
-        { status: 403 },
-      );
-    }
-
-    const body = (await request.json()) as {
-      subject?: string;
-      dependency?: string;
-      amount?: number;
+  // Soft-success mutations so the real UI keeps working without a backend
+  http.post("/api/v1/applications", async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const created = {
+      id: Math.max(...apps.map((a) => a.id)) + 1,
+      name: String(body.name ?? "New app"),
+      url_domain: String(body.url_domain ?? "new.demo.internal"),
+      entity_id: (body.entity_id as number) ?? null,
+      call_type: String(body.call_type ?? "REST"),
+      security_type_id: (body.security_type_id as number) ?? null,
+      connection_types_id: (body.connection_types_id as number) ?? null,
+      users: [],
+      auth_type: "none",
+      auth_config: {},
+      headers_globales: {},
+      rutas: Array.isArray(body.rutas) ? body.rutas : [],
     };
+    apps.push(created as (typeof apps)[number]);
+    return HttpResponse.json(wrapOne(created));
+  }),
 
-    const draft = {
-      subject: body.subject?.trim() || "Demo filing",
-      dependency: body.dependency?.trim() || "Interop Office",
-      amount: Number.isFinite(body.amount) ? Number(body.amount) : 0,
-    };
+  http.put("/api/v1/applications/:id", async ({ params, request }) => {
+    const id = Number(params.id);
+    const idx = apps.findIndex((a) => a.id === id);
+    if (idx < 0) {
+      return HttpResponse.json({ detail: "Not found" }, { status: 404 });
+    }
+    const body = (await request.json()) as Record<string, unknown>;
+    apps[idx] = { ...apps[idx], ...body, id } as (typeof apps)[number];
+    return HttpResponse.json(wrapOne(apps[idx]));
+  }),
 
-    const soap = soapEnvelopeFromDraft(draft);
-    const ticket = `DKT-${Math.floor(100000 + Math.random() * 900000)}`;
+  http.patch("/api/v1/applications/:id", async ({ params, request }) => {
+    const id = Number(params.id);
+    const idx = apps.findIndex((a) => a.id === id);
+    if (idx < 0) {
+      return HttpResponse.json({ detail: "Not found" }, { status: 404 });
+    }
+    const body = (await request.json()) as Record<string, unknown>;
+    apps[idx] = { ...apps[idx], ...body, id } as (typeof apps)[number];
+    return HttpResponse.json(wrapOne(apps[idx]));
+  }),
 
-    return HttpResponse.json({
-      steps: [
-        {
-          label: "1. Consumer REST",
-          detail: "Client sends JSON + Integrator JWT to the public gateway.",
-          payload: {
-            method: "POST",
-            path: "/docket/file-draft",
-            headers: {
-              Authorization: "Bearer <integrator-jwt>",
-              "Content-Type": "application/json",
-            },
-            body: draft,
-          },
-        },
-        {
-          label: "2. Gateway auth gate",
-          detail:
-            "JWT validated. Upstream DocketOS credentials are loaded server-side — never taken from the client token.",
-          payload: {
-            auth_type: "soap",
-            client_jwt_forwarded: false,
-            upstream_identity: "vault://docketos/service-user",
-          },
-        },
-        {
-          label: "3. REST → SOAP transform",
-          detail:
-            "JSON fields mapped into SOAP body. Integers typed for XSD. Envelope built by transform executor.",
-          payload: soap,
-        },
-        {
-          label: "4. Normalized REST response",
-          detail: "SOAP response parsed back to JSON for the consumer.",
-          payload: {
-            ok: true,
-            ticket,
-            status: "DRAFT_FILED",
-            dependency: draft.dependency,
-            message: "Mock SOAP acknowledgement translated to JSON.",
-          },
-        },
-      ],
-    });
+  http.delete("/api/v1/applications/:id", ({ params }) => {
+    const id = Number(params.id);
+    const idx = apps.findIndex((a) => a.id === id);
+    if (idx >= 0) apps.splice(idx, 1);
+    return HttpResponse.json(wrapOne({ deleted: true }));
   }),
 ];

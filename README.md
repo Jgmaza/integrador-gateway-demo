@@ -1,34 +1,21 @@
-# Interop Gateway Demo
+# Interop Gateway Demo (sanitized Vue copy)
 
-Sanitized portfolio demo inspired by interoperability gateway admin work (applications catalog, route transforms REST↔SOAP, credential vaulting, RBAC).
+Portfolio demo based on the **real Integrador admin frontend** (Vue 3 + Vuetify), not a redesign.
 
-- **Stack:** Vite + React + TypeScript + Tailwind + MSW
-- **UI focus:** Application management table → gateway routes dialog → route transform panel (mirrors the real Vue admin shape, with fictional data)
-- **No real backends**, hosts, or credentials
-- Fictional upstreams: DocketOS, CivicHub, TradeDesk, FirmBook
+- Keeps **Aplicaciones** → gateway routes → **REST↔SOAP transform** editor
+- Removes login wall, unused modules (users/roles/config/monitoring), and institutional branding
+- **MSW** mocks `/api/v1/*` with fictional apps (DocketOS, CivicHub, TradeDesk)
 
 ## Local
 
 ```bash
 npm install
+npx msw init public/ --save
 npm run dev
 ```
 
-Demo logins (password `demo1234`):
-
-- `admin@interop-demo.dev` — full catalog
-- `ops@interop-demo.dev` — assigned apps only
-- `consumer@interop-demo.dev` — read-only assigned apps
-
-## What to try
-
-1. Open **Applications** — search and browse the integration catalog.
-2. Click **Gateway routes** on an app — see consumer paths, APISIX paths, and transform kinds.
-3. Click **View transform** — inspect variables + SOAP/JSON templates (read-only demo).
-4. Optional: **REST → SOAP lab** for a live mock preview of DocketOS filing.
+Opens directly on `/applications`.
 
 ## Deploy
 
-```bash
-npx vercel --prod --scope jose-mazas-projects
-```
+Static Vite build on Vercel (`vercel.json` SPA rewrite).
